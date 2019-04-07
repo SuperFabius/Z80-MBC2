@@ -1,6 +1,6 @@
 # Z80-MBC2
 
-The Z80-MBC2 is an easy to build Z80 SBC (Single Board Computer).It is the "evolution" of the Z80-MBC (https://hackaday.io/project/19000-a-4-4ics-z80-homemade-computer-on-breadboard), with a SD as "disk emulator" and with a 128KB banked RAM for CP/M 3 (but it can run CP/M 2.2 and QP/M 2.71 too).
+The Z80-MBC2 is an easy to build Z80 SBC (Single Board Computer). It is the "evolution" of the Z80-MBC (https://hackaday.io/project/19000-a-4-4ics-z80-homemade-computer-on-breadboard), with a SD as "disk emulator" and with a 128KB banked RAM for CP/M 3 (but it can run CP/M 2.2 and QP/M 2.71 too).
 
 It has an optional on board 16x GPIO expander, and uses common cheap add-on modules for the SD and the RTC options. It has an "Arduino heart" using an Atmega32A as EEPROM and "universal" I/O emulator (so a "legacy" EPROM programmer is not needed).
 
