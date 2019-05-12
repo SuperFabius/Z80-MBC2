@@ -68,7 +68,7 @@ S220718-R260119   Changed the default serial speed to 115200 bps.
                   Added support for xmodem protocol (extended serial Rx buffer check and  
                    two new flags into the SYSFLAGS opcode for full 8 bit serial I/O control.
                   Added support for uTerm (A071218-R250119) reset at boot time.
-S220718-R260119   Added FUZIX support
+S220718-R120519   Added FUZIX support
                   TBD ********************************************************************************************
 
 --------------------------------------------------------------------------------- */
