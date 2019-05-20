@@ -4,7 +4,7 @@ S220718-R120519_DEVEL2 - HW ref: A040618
 
 
 
-**************** ONLY FOR TESTING & DEVELOPMENTE!!!! DO NOT USE!!! ****************
+**************** ONLY FOR TESTING & DEVELOPMENT!!!! DO NOT USE!!! ****************
 
 
 
@@ -69,7 +69,8 @@ S220718-R260119   Changed the default serial speed to 115200 bps.
                    two new flags into the SYSFLAGS opcode for full 8 bit serial I/O control.
                   Added support for uTerm (A071218-R250119) reset at boot time.
 S220718-R120519   Added FUZIX support
-                  DEVEL2: addede 10Hz interrupt
+                  DEVEL1: added available space check of serial Tx buffer 
+                  DEVEL2: added 10Hz interrupt
                   TBD ********************************************************************************************
 
 --------------------------------------------------------------------------------- */
@@ -594,7 +595,7 @@ void setup()
         fileNameSD = FUZIXFN;
         BootStrAddr = FUZSTRADDR;
         Z80IntRx = 1;                             // Enable Z80 Rx INT_ signal generation (Z80 M1 INT I/O)
-        Z80Int10Hz = 0;                           // Enable Z80 SysTick INT_ signal generation (Z80 M1 INT I/O) *************************************
+        Z80Int10Hz = 0;                           // Disaable Z80 SysTick INT_ signal generation (Z80 M1 INT I/O) *************************************
       break;
       }
     break;
@@ -1273,7 +1274,7 @@ void loop()
           }
           else LastRxIsEmpty = 1;             // Set the "Last Rx char was empty" flag
           digitalWrite(INT_, HIGH);           // Reset the INT_ signal
-          irqStatus = irqStatus & B11111110;  // Reset the serial Rx IRQ staus bit
+          irqStatus = irqStatus & B11111110;  // Reset the serial Rx IRQ staus bit (see SYSIRQ Opcode)
         }
         else
         // .........................................................................................................
@@ -1539,8 +1540,7 @@ void loop()
           break;
 
           case  0x89:
-            // SYSIRQ - return the interrupt status byte: ********************************************************* NEW
-            // add explanations ***********************************************************************************
+            // SYSIRQ - return the "interrupt status byte": ********************************************************* NEW
             //
             //                I/O DATA:    D7 D6 D5 D4 D3 D2 D1 D0
             //                            ---------------------------------------------------------
@@ -1549,12 +1549,23 @@ void loop()
             //                              X  X  X  X  X  X  0  X    Systick IRQ not set
             //                              X  X  X  X  X  X  1  X    Systick IRQ set
             //
-            // NOTE 1: Only D0 and D1 are currently used.
-            // NOTE 2: After the SYSIRQ call all the interrupt status bits are cleared.
+            //
+            // The INT_ signal is shared among various interrupt requests. This allows to use the simplified 
+            //  Mode 1 scheme of the Z80 CPU (fixed jump to 0x0038 on INT_ signal active) with multiple interrupt causes.
+            // The SYSIRQ purpose is to allow the Z80 CPU to know the exact causes of the interrupt reading the 
+            //  "interrupt status byte" that contains up to eight "interrupt status bits". So the ISR (Interrupt Service 
+            //  Routine) should be structured to read at first the "interrupt status byte" using the SYSIRQ Opcode, 
+            //  and than execute the needed actions before return to the normal execution.
+            // Note that multiple causes/bits could be active.
+            // 
+            //
+            //
+            // NOTE 1: Only D0 and D1 "interrupt status bit" are currently used.
+            // NOTE 2: After the SYSIRQ call all the "interrupt status bits" are cleared.
             // NOTE 3: The INT_ signal is always reset (set to HIGH) after this I/O operation.
             
             ioData = irqStatus;
-            irqStatus = 0;                        // Reset ll the interrupt status bits
+            irqStatus = 0;                        // Reset all the "interrupt status bits"
             digitalWrite(INT_, HIGH);             // Reset the INT_ signal
           break;
                   
@@ -1609,7 +1620,7 @@ void loop()
     // <sysTickTime> milliseconds are elapsed, so a Systick interrupt is required
     {
       digitalWrite(INT_, LOW);
-      irqStatus = irqStatus | B00000010;            // Set the Systick IRQ status bit
+      irqStatus = irqStatus | B00000010;            // Set the Systick IRQ status bit (see SYSIRQ Opcode)
       timeStamp = millis();
     }
   }
@@ -1641,7 +1652,7 @@ void serialEvent()
   if ((Serial.available()) && Z80IntRx)
   {
     digitalWrite(INT_, LOW);
-    irqStatus = irqStatus | B00000001;            // Set the serial Rx IRQ status bit *********************************************************************
+    irqStatus = irqStatus | B00000001;            // Set the serial Rx IRQ status bit (see SYSIRQ Opcode) *************
   }
 }
 
