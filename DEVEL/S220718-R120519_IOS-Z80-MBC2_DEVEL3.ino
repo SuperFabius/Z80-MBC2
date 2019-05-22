@@ -598,7 +598,7 @@ void setup()
         case 4:                                     // FUZIX ********************************************************
         fileNameSD = FUZIXFN;
         BootStrAddr = FUZSTRADDR;
-        Z80IntRx = 0;                             // Enable Z80 Rx INT_ signal generation (Z80 M1 INT I/O) **************
+        Z80IntRx = 0;                             // Disaable Z80 Rx INT_ signal generation (Z80 M1 INT I/O) **************
         Z80Int10Hz = 0;                           // Disaable Z80 SysTick INT_ signal generation (Z80 M1 INT I/O) *************************************
       break;
       }
