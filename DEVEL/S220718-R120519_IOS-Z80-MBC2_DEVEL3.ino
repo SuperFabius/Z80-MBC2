@@ -1372,6 +1372,7 @@ void loop()
 
           case  0x83:
             // SYSFLAGS (Various system flags for the OS):
+            //
             //                I/O DATA:    D7 D6 D5 D4 D3 D2 D1 D0
             //                            ---------------------------------------------------------
             //                              X  X  X  X  X  X  X  0    AUTOEXEC not enabled
@@ -1396,6 +1397,7 @@ void loop()
 
           case  0x84:
             // DATETIME (Read date/time and temperature from the RTC. Binary values): 
+            //
             //                I/O DATA:    D7 D6 D5 D4 D3 D2 D1 D0
             //                            ---------------------------------------------------------
             //                I/O DATA 0   D7 D6 D5 D4 D3 D2 D1 D0    seconds [0..59]     (1st data byte)
