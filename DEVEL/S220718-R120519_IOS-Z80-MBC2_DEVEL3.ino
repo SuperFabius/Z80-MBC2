@@ -66,8 +66,8 @@ S220718-R190918   Added support for CP/M 3.
                   Fixed a bug in the manual RTC setting.
 S220718-R260119   Changed the default serial speed to 115200 bps.
                   Added support for xmodem protocol (extended serial Rx buffer check and  
-                   two new flags into the SYSFLAGS opcode for full 8 bit serial I/O control.
-                  Added support for uTerm (A071218-R250119) reset at boot time.
+                   two new flags into the SYSFLAGS opcode for full 8 bit serial I/O control).
+                  Added support for uTerm (A071218-R250119 and following revisions) reset at boot time.
 S220718-R120519   Added FUZIX support
                   DEVEL1: added available space check of serial Tx buffer 
                   DEVEL2: added 10Hz interrupt
@@ -1561,8 +1561,8 @@ void loop()
             //                            ---------------------------------------------------------
             //                             D7 D6 D5 D4 D3 D2 D1 D0    free space in bytes (binary)
             //
-            // NOTE: This opcode is intended to avoid delays in serial Tx operations, as the IOS hold the Z80
-            //       in a wait status if the TX buffer is full.
+            // NOTE: This opcode is intended to avoid delays in serial Tx operations, as the IOS holds the Z80
+            //       in a wait status if the TX buffer is full. This is no good in multitasking enviroments.
             
             ioData = Serial.availableForWrite() ;
           break;
