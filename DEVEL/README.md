@@ -1,1 +1,1 @@
-This directory is intended only for unstable testing release development. DO NOT USE!!! 
+This directory is intended only for testing of unstable releases under development. DO NOT USE!!! 
