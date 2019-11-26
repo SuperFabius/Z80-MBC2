@@ -392,7 +392,17 @@ void setup()
 
   // Print some system information
   Serial.begin(115200);
-  Serial.println(F("\r\n\nZ80-MBC2 - A040618\r\n\r\nIOS: Build 20191118 - Rob Prouse\r\nIOS: I/O Subsystem - S220718-R280819"));
+
+  Serial.println(F("\r\n$$$$$$$$\\  $$$$$$\\   $$$$$$\\          $$\\      $$\\ $$$$$$$\\   $$$$$$\\   $$$$$$\\"));
+  Serial.println(F("\\____$$  |$$  __$$\\ $$$ __$$\\         $$$\\    $$$ |$$  __$$\\ $$  __$$\\ $$  __$$\\"));
+  Serial.println(F("    $$  / $$ /  $$ |$$$$\\ $$ |        $$$$\\  $$$$ |$$ |  $$ |$$ /  \\__|\\__/  $$ |"));
+  Serial.println(F("   $$  /   $$$$$$  |$$\\$$\\$$ |$$$$$$\\ $$\\$$\\$$ $$ |$$$$$$$\\ |$$ |       $$$$$$  |"));
+  Serial.println(F("  $$  /   $$  __$$< $$ \\$$$$ |\\______|$$ \\$$$  $$ |$$  __$$\\ $$ |      $$  ____/"));
+  Serial.println(F(" $$  /    $$ /  $$ |$$ |\\$$$ |        $$ |\\$  /$$ |$$ |  $$ |$$ |  $$\\ $$ |"));
+  Serial.println(F("$$$$$$$$\\ \\$$$$$$  |\\$$$$$$  /        $$ | \\_/ $$ |$$$$$$$  |\\$$$$$$  |$$$$$$$$\\"));
+  Serial.println(F("\\________| \\______/  \\______/         \\__|     \\__|\\_______/  \\______/ \\________|"));
+
+  Serial.println(F("\r\n\r\nIOS: Build 20191125 - Rob Prouse"));
 
   // Print if the input serial buffer is 128 bytes wide (this is needed for xmodem protocol support)
   if (SERIAL_RX_BUFFER_SIZE >= 128) Serial.println(F("IOS: Found extended serial Rx buffer"));
