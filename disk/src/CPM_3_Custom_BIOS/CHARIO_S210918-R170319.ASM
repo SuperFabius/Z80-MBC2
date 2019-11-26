@@ -1,0 +1,469 @@
+;********************************************************************************************
+;
+; CHARIO.ASM - S210918-R170319
+; CP/M 3.0 CHARACTER I/O BIOS MODULE FOR THE Z80-MBC2 (HW ref. A040618)
+;
+; Required IOS S220718-R260119 (or following revisions until otherwise stated)
+;
+; NOTE: Use the RMAC.COM relocatable assembler
+;
+; CHANGELOG:
+;
+; S210918           First release
+; S210918-R090319   Changed CIST0: and CI0: to allow full 8 bit data I/O
+; S210918-R170319   Added the selection of the mode of CIST0: (7 or 8 bit mode, for XMODEM)
+;
+;
+;********************************************************************************************
+
+TITLE	'CP/M 3 MODULE FOR CHARACTER I/O HANDLING - Z80-MBC2 (A040618)'
+
+	; DEFINE LOGICAL VALUES:
+TRUE		EQU	-1
+FALSE		EQU	NOT TRUE
+
+	; DETERMINE IF FOR BANK SELECT OR NOT:
+BANKED		EQU	FALSE	    ; <------ BANKED/NON-BANKED SWITCH
+
+; -------------------------------------------------------------------
+;
+;          >>>>>>>>>>>>>> READ CAREFULLY <<<<<<<<<<<<<<
+;
+; To prevent the CHARIO.ASM bank swiching IOS requests from
+; interfering with user program IOS request if using
+; "slow" interpreters as e.g. MBASIC.COM, I've decided to avoid
+; bank switching here. This is a simple solution to avoid more
+; complex one. For this reason the "BANKED" switch is intentionally
+; set at "FALSE" (although the system is banked)
+;
+; -------------------------------------------------------------------
+
+
+	; DEFINE PUBLIC LABELS:
+	PUBLIC	?CINIT,?CI,?CO,?CIST,?COST
+	PUBLIC	@CTBL
+    PUBLIC  ?cnstFlg    ; CONST mode flag (Z80-MBC2) ***
+
+	; DEFINE EXTERNAL LABELS AND ENTRY POINTS:
+	IF	BANKED
+	EXTRN	@CBNK
+	EXTRN	?BNKSL
+	ENDIF
+	EXTRN	OUT$BLOCKS	; BLOCK OUTPUT ROUTINE TO I/O PORTS
+	EXTRN	?PMSG
+
+	; INCLUDE Z-80 MACROS:
+    
+	MACLIB	Z80
+
+	; EQUATES FOR MODE BYTE BIT FIELDS
+
+MB$INPUT	EQU 0000$0001B	; DEVICE MAY DO INPUT
+MB$OUTPUT	EQU 0000$0010B	; DEVICE MAY DO OUTPUT
+MB$IN$OUT	EQU MB$INPUT+MB$OUTPUT
+
+MB$SOFT$BAUD	EQU 0000$0100B	; SOFTWARE SELECTABLE BAUD RATES
+
+MB$SERIAL	EQU 0000$1000B	; DEVICE MAY USE PROTOCOL
+MB$XON$XOFF	EQU 0001$0000B	; XON/XOFF PROTOCOL ENABLED
+
+BAUD$NONE	EQU 0		; NO BAUD RATE ASSOCIATED WITH THIS DEVICE
+BAUD$50		EQU 1		; 50 BAUD
+BAUD$75		EQU 2		; 75 BAUD
+BAUD$110	EQU 3		; 110 BAUD
+BAUD$134	EQU 4		; 134.5 BAUD
+BAUD$150	EQU 5		; 150 BAUD
+BAUD$300	EQU 6		; 300 BAUD
+BAUD$600	EQU 7		; 600 BAUD
+BAUD$1200	EQU 8		; 1200 BAUD
+BAUD$1800	EQU 9		; 1800 BAUD
+BAUD$2400	EQU 10		; 2400 BAUD
+BAUD$3600	EQU 11		; 3600 BAUD
+BAUD$4800	EQU 12		; 4800 BAUD
+BAUD$7200	EQU 13		; 7200 BAUD
+BAUD$9600	EQU 14		; 9600 BAUD
+BAUD$19200	EQU 15		; 19.2K BAUD
+
+; --------------------------------------------------------------------------------
+;
+; Z80-MBC2 IOS equates
+;
+; --------------------------------------------------------------------------------
+
+EXC$WR$OPCD  EQU    000H      ; Address of the EXECUTE WRITE OPCODE write port
+EXC$RD$OPCD  EQU    000H      ; Address of the EXECUTE READ OPCODE read port
+STO$OPCD     EQU    001H      ; Address of the STORE OPCODE write port
+SERIAL$RX    EQU    001H      ; Address of the SERIAL RX read port
+SERTX$OPC    EQU    001H      ; SERIAL TX opcode
+SELDISK$OPC  EQU    009H      ; SELDISK opcode
+SELTRCK$OPC  EQU    00AH      ; SELTRACK opcode
+SELSECT$OPC  EQU    00BH      ; SELSECT opcode
+WRTSECT$OPC  EQU    00CH      ; WRITESECT opcode
+SYSFLAG$OPC  EQU    083H      ; SYSFLAG opcode
+DATETIM$OPC  EQU    084H      ; DATETIME opcode
+ERRDSK$OPC   EQU    085H      ; ERRDISK opcode
+RDSECT$OPC   EQU    086H      ; READSECT opcode
+SDMOUNT$OPC  EQU    087H      ; SDMOUNT opcode
+
+
+	; WILL START OFF IN COMMON MEMORY FOR BANKED OR NON-BANKED SYSTEMS:
+    ; --------------------------
+	CSEG
+    ; --------------------------
+
+
+  IF	BANKED
+	; WE PROVIDE ALTERNATE DEFINITIONS OF THE ROUTINE ENTRY POINTS IF
+	;  WE ARE RUNNING A BANKED SYSTEM VERSUS A NON-BANKED SYSTEM:
+
+	;;;;; ?CINIT
+	; ENTER HERE FOR BANKED SYSTEMS FOR DEVICE INITIALIZATIONS:
+?CINIT:
+	LXI	H,BCINIT	;POINT TO BANKED ROUTINE ADDRESS
+	JR	BANKIO		;GO TO DISPATCHER
+
+	;;;;; ?CI
+	; ENTER HERE FOR BANKED SYSTEM DEVICE INPUT:
+?CI:	LXI	H,BCI	;POINT TO BANKED ROUTINE ADDRESS
+	JR	BANKIO		;GO TO DISPATCHER
+
+	;;;;; ?CO
+	; ENTER HERE FOR BANKED SYSTEM DEVICE OUTPUT:
+?CO:	LXI	H,BCO	;POINT TO BANKED ROUTINE ADDRESS
+	JR	BANKIO		;GO TO DISPATCHER
+
+	;;;;; ?CIST
+	; ENTER HERE FOR BANKED SYSTEM DEVICE INPUT STATUS:
+?CIST:	LXI	H,BCIST	;POINT TO BANKED ROUTINE ADDRESS
+	JR	BANKIO		;GO TO DISPATCHER
+
+	;;;;; ?COST
+	; ENTER HERE FOR BANKED SYSTEM DEVICE OUTPUT STATUS:
+?COST:	LXI	H,BCOST	;POINT TO BANKED ROUTINE ADDRESS
+
+
+	;;;;; BANKIO
+	; ROUTINE DISPATCHES TO BANKED PORTION OF CHARACTER I/O ROUTINES:
+BANKIO:
+	SSPD	SPSAVE	;SAVE CURRENT STACK POINTER
+	LXI	SP,IOSP		; AND USE LOCAL STACK FOR I/O
+	LDA	@CBNK		;GET CURRENT BANK
+	PUSH	PSW		;SAVE ON LOCAL STACK
+	XRA	A		    ;WE WILL SELECT BANK 0 (OP SYS)
+	CALL	?BNKSL
+	LXI	D,BIORET	;RETURN ADDRESS IN [DE]
+	PUSH	D		;PUT IT ON STACK FOR RETURN
+	PCHL			;DISPATCH TO BANKED PART OF ROUTINE
+
+	; ARRIVE HERE AFTER DEVICE HANDLER FINISHED:
+BIORET:
+	POP	D		    ;GET PREVIOUS CURRENT BANK TO [D]
+	PUSH	PSW		;SAVE HANDLER RETURNED RESULT (IF ANY)
+	MOV	A,D		    ;RESELECT PREVIOUS CURRENT BANK
+	CALL	?BNKSL
+	POP	PSW		    ;GET BACK RESULT CODE TO [A]
+	LSPD	SPSAVE	;RESTORE PREVIOUS STACK
+	RET			    ;AND RETURN...
+  ENDIF
+
+
+	;;;;;
+	;;;;; ACTUAL DEVICE HANDLERS
+	;;;;;
+
+
+	;;;;; ?CINIT (BCINIT FOR BANKED)
+	; PHYSICAL CODE FOR DEVICE INITIALIZATION:
+  IF	BANKED
+    ; --------------------------
+	DSEG			;CAN PUT IN BANKED SEGMENT IF BANKED
+    ; --------------------------
+BCINIT:
+  ELSE
+?CINIT:
+  ENDIF
+	MOV	B,C		    ;ON ENTRY DEVICE # IS IN [C] BUT WE NEED
+                    ; IT IN [B]
+	CALL	DEV$DISPATCH	;GO TO CORRECT INIT ROUTINE
+	DW	CINIT0		;INIT FOR DEVICE 0
+	DW	NULL$INIT	;INIT FOR DEVICE 1
+	DW	NULL$INIT	;INIT FOR DEVICE 2
+	DW	NULL$INIT	;INIT FOR DEVICE 3
+	DW	NULL$INIT	;INIT FOR DEVICE 4
+	DW	NULL$INIT	;INIT FOR DEVICE 5
+	DW	NULL$INIT	;INIT FOR DEVICE 6
+	DW	NULL$INIT	;INIT FOR DEVICE 7
+	DW	NULL$INIT	;INIT FOR DEVICE 8
+	DW	NULL$INIT	;INIT FOR DEVICE 9
+	DW	NULL$INIT	;INIT FOR DEVICE 10
+	DW	NULL$INIT	;INIT FOR DEVICE 11
+	DW	NULL$INIT	;INIT FOR DEVICE 12
+	DW	NULL$INIT	;INIT FOR DEVICE 13
+	DW	NULL$INIT	;INIT FOR DEVICE 14
+	DW	NULL$INIT	;INIT FOR DEVICE 15
+
+
+	;;;;; ?CI (BCI FOR BANKED)
+	; PHYSICAL CODE FOR DEVICE INPUT:
+  IF	BANKED
+BCI:
+  ELSE
+?CI:
+  ENDIF
+	CALL	DEV$DISPATCH
+	DW	CI0		;DEVICE 0 INPUT
+	DW	NULL$CI		;DEVICE 1 INPUT
+	DW	NULL$CI		;DEVICE 2 INPUT
+	DW	NULL$CI		;DEVICE 3 INPUT
+	DW	NULL$CI		;DEVICE 4 INPUT
+	DW	NULL$CI		;DEVICE 5 INPUT
+	DW	NULL$CI		;DEVICE 6 INPUT
+	DW	NULL$CI		;DEVICE 7 INPUT
+	DW	NULL$CI		;DEVICE 8 INPUT
+	DW	NULL$CI		;DEVICE 9 INPUT
+	DW	NULL$CI		;DEVICE 10 INPUT
+	DW	NULL$CI		;DEVICE 11 INPUT
+	DW	NULL$CI		;DEVICE 12 INPUT
+	DW	NULL$CI		;DEVICE 13 INPUT
+	DW	NULL$CI		;DEVICE 14 INPUT
+	DW	NULL$CI		;DEVICE 15 INPUT
+
+
+	;;;;; ?CO (BCO FOR BANKED)
+	; PHYSICAL CODE FOR DEVICE OUTPUT:
+  IF	BANKED
+BCO:
+  ELSE
+?CO:
+  ENDIF
+	CALL	DEV$DISPATCH	;GO TO CORRECT DEVICE OUTPUT HANDLER
+	DW	CO0		;DEVICE 0 OUTPUT
+	DW	NULL$CO		;DEVICE 1 OUTPUT
+	DW	NULL$CO		;DEVICE 2 OUTPUT
+	DW	NULL$CO		;DEVICE 3 OUTPUT
+	DW	NULL$CO		;DEVICE 4 OUTPUT
+	DW	NULL$CO		;DEVICE 5 OUTPUT
+	DW	NULL$CO		;DEVICE 6 OUTPUT
+	DW	NULL$CO		;DEVICE 7 OUTPUT
+	DW	NULL$CO		;DEVICE 8 OUTPUT
+	DW	NULL$CO		;DEVICE 9 OUTPUT
+	DW	NULL$CO		;DEVICE 10 OUTPUT
+	DW	NULL$CO		;DEVICE 11 OUTPUT
+	DW	NULL$CO		;DEVICE 12 OUTPUT
+	DW	NULL$CO		;DEVICE 13 OUTPUT
+	DW	NULL$CO		;DEVICE 14 OUTPUT
+	DW	NULL$CO		;DEVICE 15 OUTPUT
+
+
+	;;;;; ?CIST (BCIST FOR BANKED)
+	; PHYSICAL CODE FOR DEVICE INPUT STATUS:
+  IF	BANKED
+BCIST:
+  ELSE
+?CIST:
+  ENDIF
+	CALL	DEV$DISPATCH
+	DW	CIST0		;DEVICE 0 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 1 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 2 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 3 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 4 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 5 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 6 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 7 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 8 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 9 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 10 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 11 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 12 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 13 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 14 INPUT STATUS
+	DW	NULL$CIST	;DEVICE 15 INPUT STATUS
+
+
+	;;;;; ?COST (BCOST FOR BANKED)
+	; PHYSICAL CODE FOR DEVICE OUTPUT STATUS:
+  IF	BANKED
+BCOST:
+  ELSE
+?COST:
+  ENDIF
+	CALL	DEV$DISPATCH	;GO TO CONSOLE OUTPUT STATUS HANDLER
+	DW	COST0		;DEVICE 0 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 1 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 2 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 3 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 4 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 5 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 6 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 7 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 8 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 9 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 10 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 11 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 12 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 13 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 14 OUTPUT STATUS
+	DW	NULL$COST	;DEVICE 15 OUTPUT STATUS
+
+
+	;;;;; DEV$DISPATCH
+	; ROUTINE JUMPS TO CORRECT DEVICE HANDLER:
+DEV$DISPATCH:
+	MOV	A,B		    ;GET DEVICE # TO [A]
+	STA	DEV$CODE	;SAVE FOR LATER USE
+	ADD	A		    ;X2 FOR WORD OFFSET
+	POP	H		    ;RETURN ADDRESS IS 1ST PARAMETER ADDRESS
+	MOV	E,A		    ;SET UP OFFSET IN [DE]
+	MVI	D,0
+	DAD	D		    ;[HL] = PTR TO HANDLER ADDRESS
+	MOV	E,M		    ;GET HANDLER ADDRESS TO [DE]
+	INX	H
+	MOV	D,M
+	XCHG			;PUT IN [HL]
+	PCHL			;AND DISPATCH TO IT...
+
+
+	;;;;;
+	;;;;; PHYSICAL DEVICE HANDLER CODE:
+	;;;;;
+    
+; ----------------------------------------------------------
+;
+; Z80-MBC2 I/O
+;
+; ----------------------------------------------------------
+
+
+CINIT0:	; DEVICE 0 INITIALIZATION (Z80-MBC2) 
+	RET                     ; Nothing to do
+
+; 
+;<<<<<<<<<<<<<<<<<<< MAIN CONSOLE STATUS ROUTINE (Z80-MBC2) >>>>>>>>>>>>>>>>>>>>>> 
+;
+
+
+CIST0:				; DEVICE 0 INPUT STATUS
+    lda     ?cnstFlg        ; A = CONST mode flag
+    ora     a               ; CONST mode flag = 0?
+    jrz     CONST7		    ; Yes, jump to 7 bit CONST routine
+CONST8:                     ; No, 8 bit mode CONST routine
+    mvi     a, SYSFLAG$OPC  ; A = SYSFLAG opcode
+    out     STO$OPCD        ; Write the opcode
+    in      EXC$RD$OPCD     ; Read SYSFLAG data into A
+    ani     04H             ; Rx serial buffer empty (D2 = 0)?
+    jrz     NoInChr         ; Yes, jump
+							; No, set char ready flag
+
+InChr:						; Set char ready flag
+    mvi      a, 0ffH        ; Return CP/M a char ready flag ($FF)
+    ret
+
+CONST7:
+    lda     InChrBuf        ; A = previous char read by CONST, if any
+    cpi     0ffH            ; Is = $FF ($FF from UART = no char)?
+    jrnz    InChr           ; No, jump (char already read and ready)
+    in      SERIAL$RX       ; Yes, Read a char from "virtual" UART
+    sta     InChrBuf        ; Store it
+    cpi     0ffH            ; Is = $FF ($FF from UART = no char)?
+    jrnz    InChr           ; No, set char ready flag
+							; Yes, set char not ready flag
+
+NoInChr:                    ; Set char not ready flag
+    xra     a               ; Set no char flag (A = 0)
+    ret                     ; Return CP/M no char flag ($00)
+    
+InChrBuf:                   ; Last read char by CONST ($FF = no char)
+    db      0ffH            ; Initialized as $FF
+?cnstFlg:
+    db      0H              ; CONST mode flag. If = 1 the full 8 bit mode is active,
+							; if = 0 the "legacy" 7 bit mode is used (not really 7 bit
+							; but only the $ff char is ignored and used as "no char" flag ***
+
+COST0:	            ; DEVICE 0 OUTPUT STATUS (Z80-MBC2) 
+    mvi     a, 0ffH         ; Always ready to TX
+    ret
+
+;
+;<<<<<<<<<<<<<<<<<<<< MAIN CONSOLE INPUT ROUTINE (Z80-MBC2) >>>>>>>>>>>>>>>>>>>>
+;
+
+CI0:				;DEVICE 0 INPUT
+    lda     InChrBuf        ; A = previous char read by CONST, if any
+    cpi     0ffH            ; Is = $FF ($FF from UART = no char)?
+    jrz     GetChr          ; Yes, jump to read a char
+    push    psw             ; No, InChrBuf = $FF (clear buffer)
+    mvi     a, 0ffH
+    sta     InChrBuf
+    pop     psw             ; Return with the previously saved char
+    ret
+    
+GetChr:
+    in      SERIAL$RX       ; Read a char from UART
+    cpi     0ffH            ; Is = $FF ($FF from UART = no char)?
+	rnz						; No, retun with it in A
+                            ; Yes, check if ffH is a valid char
+
+ChkFF:                      ; Check if ffH is a valid char
+    mvi     a, SYSFLAG$OPC  ; A = SYSFLAG opcode
+    out     STO$OPCD        ; Write the opcode
+    in      EXC$RD$OPCD     ; Read SYSFLAG data into A
+    ani     08H             ; It was a "serial buffer empty" flag (D3 = 1)?
+    jrnz    GetChr          ; Yes, jump and wait for a char
+    mvi     a, 0ffH         ; No, it is a valid ffH char
+    ret                     ; Retun with it in A
+
+    
+;
+;<<<<<<<<<<<<<<<<<<<<<< MAIN CONSOLE OUTPUT ROUTINE (Z80-MBC2) >>>>>>>>>>>>>>>>>>>>>>>>>
+;
+
+CO0:				; DEVICE 0 OUTPUT
+    mvi     a, SERTX$OPC    ; A = SERIAL TX opcode
+    out     STO$OPCD        ; Write the opcode
+    mov     a, c
+    out     EXC$WR$OPCD     ; Send A to serial Tx
+    ret
+
+;
+; -------------------------------------------------------------------------
+;
+
+	;;;;; NULL ROUTINES:
+NULL$CIST:
+NULL$COST:
+	XRA	A		            ;RETURN A FALSE STATUS RESULT
+	JR	NULL$RET
+NULL$CI:
+	MVI	A,1AH		        ;FOR INPUT RETURN A CNTL-Z (EOF)
+NULL$INIT:
+NULL$CO:
+NULL$RET:
+	RET			            ;HARMLESS RETURN
+
+
+	; STORAGE FOR DEVICE CODE -- CAN RESIDE IN SAME SEGMENT AS THE BULK
+	;  OF CHARACTER I/O ROUTINES:
+DEV$CODE:	DS	1
+
+	;;;;; CHRTBL
+	; CHARACTER DEVICE TABLE
+    ; --------------------------
+	CSEG			        ;MUST RESIDE IN COMMON MEMORY
+    ; --------------------------
+    
+@CTBL:
+	DB	'CRT   '		    ;CONSOLE (DEVICE 0)
+	DB	MB$IN$OUT
+	DB	BAUD$NONE
+
+MAX$DEVICES	EQU	($-@CTBL)/8	;# DEVICES IN TABLE
+	DB	0			        ;TABLE TERMINATOR
+
+
+	; OTHER DATA AREAS:
+	DS	24		            ;CHARACTER I/O LOCAL STACK
+IOSP	EQU	$
+SPSAVE	DS	2
+
+	END
