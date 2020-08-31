@@ -110,7 +110,7 @@ Start:          DI                       ;Disable interrupts
                 PUSH     AF
                 PUSH     HL
                 ;
-                ; Check if SisTick IRQ flag is set
+                ; Check which SisTick IRQ flag is set
                 ;
                 LD       A,SYSIRQ_opc    ; A = SYSIRQ Opcode
                 OUT      (StorOpc_port),A; Write the Opcode to IOS
