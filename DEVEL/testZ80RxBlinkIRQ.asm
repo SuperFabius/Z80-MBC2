@@ -125,7 +125,7 @@ Start:          DI                       ;Disable interrupts
                 DEC      A
                 LD       (TickCount),A
                 JR       NZ,RxIRQCK      ; Jump if TickCount not zero
-                LD       a,TICKLED       ; Set TickCount = 100
+                LD       a,TICKLED       ; Reload TickCount
                 LD       (TickCount),A
                 LD       A,(UserLedStat) ; Change the User Led status
                 XOR      1
