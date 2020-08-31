@@ -165,7 +165,7 @@ GetChar:
                 CP       0
                 JR       Z, GetChar      ; Wait for a char
                 XOR      A
-                DI                       ; Must be an atomix events, so IRQ disbled
+                DI                       ; Must be an atomic events, so IRQ disbled
                 LD       (RxCharFlg), A  ; Clear the Rx char ready flag
                 LD       A, (RxChar)
                 EI                       ; Now IRQ can be enabled again
@@ -208,7 +208,7 @@ puts_end:       RET
 
 INIT:
                LD        HL,Stack
-               LD        SP,HL           ; Set up a temporary stack
+               LD        SP,HL           ; Set up a stack
                ;
                ; IOS S220718-R120519_DEVEL4: Set Systick time
                ;
@@ -226,9 +226,9 @@ INIT:
                ;
                IM        1              ; Enable Z80 IRQ mode 1
                EI
-               LD        HL, Msg1        ; Print a message
+               LD        HL, Msg1       ; Print a message
                CALL      PutStr
-               LD        A, prompt       ; Print the prompt
+               LD        A, prompt      ; Print the prompt
                CALL      PutChar
                ;
                ; Echo test
