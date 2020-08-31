@@ -156,7 +156,7 @@ RxISREnd:       POP      HL
 
 ;------------------------------------------------------------------------------
 ;
-; Read a char in A from the serial port, or wait for  char
+; Read a char in A from the serial port, or wait for  char.
 ; NOTE: There is a read rx buffer on the Atmega side, so no buffer here.
 ;
 
@@ -173,7 +173,7 @@ GetChar:
 
 ;------------------------------------------------------------------------------
 ;
-; Send to the serial port a char in A
+; Send to the serial port a char in A.
 ;
 
 PutChar:            
@@ -191,7 +191,7 @@ PutChar:
 ;------------------------------------------------------------------------------
 ;
 ; Send a string to the serial line, HL contains the pointer to the string.
-; NOTE: Only A and HL are used
+; NOTE: Only A and HL are used.
 ;
 
 PutStr:
