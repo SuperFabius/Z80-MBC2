@@ -8,4 +8,4 @@ It is a complete development "ecosystem", and using the iLoad boot mode it is po
 
 Project page: https://hackaday.io/project/159973-z80-mbc2-4ics-homemade-z80-computer
 
-Last IOS revision: IOS S220718-R290823
+Latest IOS revision: IOS S220718-R290823
